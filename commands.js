@@ -188,6 +188,24 @@ var commands = exports.commands = {
 			}
 		}
 	},
+	
+	leagueroom: function (target, room, user) {
+		if (!this.can('makeroom')) return;
+		if (!room.chatRoomData) {
+			return this.sendReply('/leagueroom - This room can\'t be marked as a league');
+		}
+		if (target === 'off') {
+			delete room.isLeague;
+			this.addModCommand(user.name+' has made this chat room a normal room.');
+			delete room.chatRoomData.isLeague;
+			Rooms.global.writeChatRoomData();
+		} else {
+			room.isLeague = true;
+			this.addModCommand(user.name+' made this room a league room.');
+			room.chatRoomData.isLeague = true;
+			Rooms.global.writeChatRoomData();
+		}
+	},
 
 	modjoin: function (target, room, user) {
 		if (!this.can('privateroom', null, room)) return;
@@ -276,6 +294,59 @@ var commands = exports.commands = {
 			room.chatRoomData.introMessage = room.introMessage;
 			Rooms.global.writeChatRoomData();
 		}
+	},
+	
+	closeleague: 'openleague',
+	openleague: function (target, room, user, connection, cmd) {
+		if (!room.isLeague) return this.sendReply("This is not a league room, if it is, get a Leader or Admin to set the room as a league room.");
+		if (!this.can('roommod', null, room)) return false;
+		if (!room.chatRoomData) {
+			return this.sendReply("This room cannot have a league toggle option.");
+		}
+		if (cmd === 'closeleague') {
+			if (!room.isOpen) return this.sendReply('The league is already marked as closed.');
+			delete room.isOpen;
+			delete room.chatRoomData.isOpen;
+			Rooms.global.writeChatRoomData();
+			return this.sendReply('This league has now been marked as closed.');
+		}
+		else {
+			if (room.isOpen) return this.sendReply('The league is already marked as open.');
+			room.isOpen = true;
+			room.chatRoomData.isOpen = true;
+			Rooms.global.writeChatRoomData();
+			return this.sendReply('This league has now been marked as open.');
+		}
+	},
+
+	leaguestatus: function (target, room, user) {
+		if (!room.isLeague) return this.sendReply("This is not a league room, if it is, get a Leader or Admin to set the room as a league room.");
+		if (!this.canBroadcast()) return;
+		if (room.isOpen) {
+			return this.sendReplyBox(room.title+' is <font color="green"><b>open</b></font> to challengers.');
+		}
+		else if (!room.isOpen) {
+			return this.sendReplyBox(room.title+' is <font color="red"><b>closed</b></font> to challengers.');
+		}
+		else return this.sendReply('This league does not have a status set.');
+	},
+	
+	roomfounder: function (target, room, user) {
+		if (!room.chatRoomData) {
+			return this.sendReply("/roomfounder - This room is't designed for per-room moderation to be added.");
+		}
+		var target = this.splitTarget(target, true);
+		var targetUser = this.targetUser;
+		if (!targetUser) return this.sendReply("User '"+this.targetUsername+"' is not online.");
+		if (!this.can('makeroom')) return false;
+		if (!room.auth) room.auth = room.chatRoomData.auth = {};
+		var name = targetUser.name;
+		room.auth[targetUser.userid] = '#';
+		room.founder = targetUser.userid;
+		this.addModCommand(''+name+' was appointed to Room Founder by '+user.name+'.');
+		room.onUpdateIdentity(targetUser);
+		room.chatRoomData.founder = room.founder;
+		Rooms.global.writeChatRoomData();
 	},
 
 	roomowner: function (target, room, user) {
@@ -378,6 +449,30 @@ var commands = exports.commands = {
 
 		if (targetUser) targetUser.updateIdentity();
 		if (room.chatRoomData) Rooms.global.writeChatRoomData();
+	},
+	
+	roomlock: 'lockroom',
+	lockroom: function(target, room, user) {
+		if (!room.auth) {
+			return this.sendReply("Only unofficial chatrooms can be locked.");
+		}
+		if (room.auth[user.userid] != '#' && user.group != '~') {
+			return this.sendReply('/lockroom - Access denied.');
+		}
+		room.lockedRoom = true;
+		this.addModCommand(user.name + ' has locked the room.');
+	},
+
+	roomunlock: 'unlockroom',
+	unlockroom: function(target, room, user) {
+		if (!room.auth) {
+			return this.sendReply("Only unofficial chatrooms can be unlocked.");
+		}
+		if (room.auth[user.userid] != '#' && user.group != '~') {
+			return this.sendReply('/unlockroom - Access denied.');
+		}
+		room.lockedRoom = false;
+		this.addModCommand(user.name + ' has unlocked the room.');
 	},
 
 	roomauth: function (target, room, user, connection) {
@@ -486,6 +581,9 @@ var commands = exports.commands = {
 		var targetRoom = Rooms.get(target) || Rooms.get(toId(target));
 		if (!targetRoom) {
 			return connection.sendTo(target, "|noinit|nonexistent|The room '" + target + "' does not exist.");
+		}
+		if (!targetRoom.isLocked && user.group != '~') {
+			return connection.sendTo(target, "|noinit|nonexistent|The room '" + target + "' is currently locked for users to join.");
 		}
 		if (targetRoom.isPrivate) {
 			if (targetRoom.modjoin) {
