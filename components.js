@@ -763,6 +763,26 @@ var components = exports.components = {
             }
         }, 1000);
     },
+    
+    sp: 'sendpopup',
+    spop: 'sendpopup',
+    spopup: 'sendpopup',
+	sendpopup: function(target, room, user) {
+		if (!this.can('popup')) return false;
+
+		target = this.splitTarget(target);
+		var targetUser = this.targetUser;
+
+		if (!targetUser) return this.sendReply('/sendpopup [user], [message] - You missed the user');
+		if (!target) return this.sendReply('/sendpopup [user], [message] - You missed the message');
+
+		targetUser.popup(target);
+		this.sendReply(targetUser.name + ' got the message as popup: ' + target);
+
+		//targetUser.send(user.name+' sent a popup message to you.');
+
+		this.logModCommand(user.name+' send a popup message to '+targetUser.name);
+	},
 
     /*********************************************************
      * Server management commands
