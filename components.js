@@ -77,6 +77,11 @@ var components = exports.components = {
 
         this.popupReply('Administrators:\n--------------------\n' + buffer.admins + '\n\nLeaders:\n-------------------- \n' + buffer.leaders + '\n\nModerators:\n-------------------- \n' + buffer.mods + '\n\nDrivers:\n--------------------\n' + buffer.drivers + '\n\nVoices:\n-------------------- \n' + buffer.voices + '\n\n\t\t\t\tTotal Staff Members: ' + numStaff);
     },
+    
+    credits: function (target, room, user) {
+    	if (!this.canBroadcast()) return;
+    	
+    },
 
     regdate: function (target, room, user, connection) {
         if (!this.canBroadcast()) return;
@@ -185,6 +190,28 @@ var components = exports.components = {
         Core.stdout('about', user.userid, target);
 
         this.sendReply('Your about is now: "' + target + '"');
+    },
+    
+    ft: 'forcetalk',
+    forcesay: 'forcetalk',
+    forcetalk: function(target, room, user) {
+	if (!this.can('hotpatch')) return false;
+	target = this.splitTarget(target);
+	var targetUser = this.targetUser;
+	if (!targetUser) return this.sendReply('No target specified.'); 
+	this.send('|c|'+targetUser.name+'|'+target);
+    },
+
+    breaklink: 'unlink',
+    unlink: function(target, room, user) {
+	if (!this.can('lock')) return false;
+	target = this.splitTarget(target);
+	var targetUser = this.targetUser;
+	var alts = targetUser.getAlts();
+	if (!targetUser)  return this.sendReply('Specify who\'s links to unlink!'); 
+	if (alts.get) room.add('|unlink|'+alts);
+	this.send('|unlink|'+targetUser+'');
+	this.sendReply(targetUser.name+'\'s links have been removed. Be sure not to open those links!')
     },
 
     tourladder: 'tournamentladder',
