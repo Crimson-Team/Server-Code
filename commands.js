@@ -245,6 +245,39 @@ var commands = exports.commands = {
 		}
 	},
 
+	roomlist: function(target, room, user, connection) {
+		if (!user.can('makeroom')) return false;
+			for (var u in Rooms.rooms) {
+				if (Rooms.rooms[u].type === "chat") {
+					if (!Rooms.rooms[u].active && !Rooms.rooms[u].isPrivate) {
+						connection.sendTo(room.id, '|raw|INACTIVE: <font color=red><b>'+u+'</b></font>');
+					}
+					if (Rooms.rooms[u].isPrivate && Rooms.rooms[u].active) {
+						connection.sendTo(room.id, '|raw|PRIVATE: <b>'+u+'</b>');
+					}
+					if (!Rooms.rooms[u].active && Rooms.rooms[u].isPrivate) {
+						connection.sendTo(room.id, '|raw|INACTIVE and PRIVATE: <font color=red><b>'+u+'</font></b>');
+					}
+					if (Rooms.rooms[u].active && !Rooms.rooms[u].isPrivate) {
+						connection.sendTo(room.id, '|raw|<font color=green>'+u+'</font>');
+				}
+			}
+		}
+	},
+
+	inactiverooms: function(target, room, user, connection) {
+		if (!user.can('makeroom')) return false;
+		for (var u in Rooms.rooms) {
+			if (!Rooms.rooms[u].active && Rooms.rooms[u].type == 'chat') {
+				if (Rooms.rooms[u].isPrivate) {
+					connection.sendTo(room.id, '|raw|INACTIVE and PRIVATE: <font color=red><b>'+u+'</b></font>');
+				} else {
+					connection.sendTo(room.id, '|raw|INACTIVE: <font color=red><b>'+u+'</b></font>');
+				}
+			}
+		}
+	},
+
 	roomdesc: function (target, room, user) {
 		if (!target) {
 			if (!this.canBroadcast()) return;
@@ -1081,6 +1114,74 @@ var commands = exports.commands = {
 		targetUser.resetName();
 		targetUser.send("|nametaken||" + user.name + " has forced you to change your name. " + target);
 	},
+	
+	flogout: 'forcelogout',
+	forcelogout: function(target, room, user) {
+		if(!user.can('hotpatch')) return;
+		if (!this.canTalk()) return false;
+
+		if (!target) return this.sendReply('/forcelogout [username], [reason] OR /flogout [username], [reason] - You do not have to add a reason');
+
+		target = this.splitTarget(target);
+		var targetUser = this.targetUser;
+
+		if (!targetUser) {
+			return this.sendReply('User '+this.targetUsername+' not found.');
+		}
+
+		if (targetUser.can('hotpatch')) return this.sendReply('You cannot force logout another Admin.');
+
+		this.addModCommand(''+targetUser.name+' was forcibly logged out by '+user.name+'.' + (target ? " (" + target + ")" : ""));
+
+		this.logModCommand(user.name+' forcibly logged out '+targetUser.name '.');
+
+		targetUser.resetName();
+	},
+	
+	/*complaint: 'complain',
+	complain: function(target, room, user) {
+		if(!target) return this.parse('/help complaint');
+		this.sendReplyBox('Thanks for your input. We\'ll review your feedback soon. The complaint you submitted was: ' + target);
+		this.logComplaint(target);
+	},
+
+	complaintslist: 'complaintlist',
+	complaintlist: function(target, room, user, connection) {
+		if (!this.can('complaintlist')) return false;
+		var lines = 0;
+		if (!target.match('[^0-9]')) { 
+			lines = parseInt(target || 15, 10);
+			if (lines > 100) lines = 100;
+		}
+		var filename = 'logs/complaint.txt';
+		var command = 'tail -'+lines+' '+filename;
+		var grepLimit = 100;
+		if (!lines || lines < 0) { // searching for a word instead
+			if (target.match(/^["'].+["']$/)) target = target.substring(1,target.length-1);
+			command = "awk '{print NR,$0}' "+filename+" | sort -nr | cut -d' ' -f2- | grep -m"+grepLimit+" -i '"+target.replace(/\\/g,'\\\\\\\\').replace(/["'`]/g,'\'\\$&\'').replace(/[\{\}\[\]\(\)\$\^\.\?\+\-\*]/g,'[$&]')+"'";
+		}
+
+		require('child_process').exec(command, function(error, stdout, stderr) {
+			if (error && stderr) {
+				connection.popup('/complaintlist erred - the complaints list does not support Windows');
+				console.log('/complaintlog error: '+error);
+				return false;
+			}
+			if (lines) {
+				if (!stdout) {
+					connection.popup('The complaints list is empty. Great!');
+				} else {
+					connection.popup('Displaying the last '+lines+' lines of complaints:\n\n'+stdout);
+				}
+			} else {
+				if (!stdout) {
+					connection.popup('No complaints containing "'+target+'" were found.');
+				} else {
+					connection.popup('Displaying the last '+grepLimit+' logged actions containing "'+target+'":\n\n'+stdout);
+				}
+			}
+		});
+	},*/
 
 	modlog: function (target, room, user, connection) {
 		var lines = 0;
